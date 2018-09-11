@@ -1,0 +1,49 @@
+{
+  "name": "pr-checkbot",
+  "version": "1.0.0",
+  "description": "A probot app that renders an intelligent checklist on your pr and uploads it to a changelof ",
+  "author": "jilucev <jilucev7@gmail.com>",
+  "license": "ISC",
+  "repository": "https://github.com/jilucev/pr-checkbot.git",
+  "homepage": "https://github.com/jilucev/pr-checkbot",
+  "bugs": "https://github.com/jilucev/pr-checkbot/issues",
+  "keywords": [
+    "probot",
+    "github",
+    "probot-app"
+  ],
+  "scripts": {
+    "dev": "nodemon",
+    "start": "probot run ./index.js",
+    "lint": "standard --fix",
+    "test": "jest && standard",
+    "test:watch": "jest --watch --notify --notifyMode=change --coverage"
+  },
+  "dependencies": {
+    "probot": "^7.0.0"
+  },
+  "devDependencies": {
+    "jest": "^22.4.3",
+    "nodemon": "^1.17.2",
+    "smee-client": "^1.0.2",
+    "standard": "^10.0.3"
+  },
+  "engines": {
+    "node": ">= 8.3.0"
+  },
+  "standard": {
+    "env": [
+      "jest"
+    ]
+  },
+  "jest": {
+    "testEnvironment": "node"
+  },
+  "nodemonConfig": {
+    "exec": "npm start",
+    "watch": [
+      ".env",
+      "."
+    ]
+  }
+}
