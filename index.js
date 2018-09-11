@@ -11,21 +11,46 @@ module.exports = app => {
     return context.github.issues.createComment(issueComment)
   })
 
-  app.on('pull_request.opened', async context => {
-    app.log('pr was opened')
-  })
+  app.on(['pull_request.opened', 'pull_request.reopened'], async context => {
+    const params = context.issue();
+    const {owner, repo, number} = params;
 
-  app.on('pull_request.reopened', async context => {
-    app.log('pr was reopened')
-  })
+    const rulesFile = await context.github.repos.getContent({owner, repo, path: '.github/PR_CHECKLIST.json'});
+    const rules = JSON.parse(Buffer.from(rulesFile.data.content, 'base64').toString()).rules;
+
+    const files = (await context.github.pullRequests.getFiles({owner, repo, number})).data.map(_ => _.filename);
+
+    const matchingRules = rules.filter(rule => {
+      const regexp = new RegExp(rule.pattern);
+
+      return files.some(file => regexp.test(file));
+    });
+
+    const messages = [ '# Code Review Checklist' ];
+
+    matchingRules.forEach(rule => {
+      messages.push('## ' + rule.name);
+
+      rule.checks.forEach(check => messages.push(`- [ ] ${check}`));
+    });
+
+    const prComment = context.issue({ body: messages.join('\n')});
+
+    await context.github.issues.createComment(prComment);
+
+    const sha = context.payload.pull_request.head.sha;
+
+    return context.github.repos
+      .createStatus({ owner, repo, sha, state: 'pending', context: 'Code Review', description: 'Checklist' });
+  });
 
   app.on('pull_request.edited', async context => {
     app.log('pr was edited')
-  })
+  });
 
   app.on('pull_request.closed', async context => {
     app.log('pr was closed')
-  })
+  });
 
   // For more information on building apps:
   // https://probot.github.io/docs/
