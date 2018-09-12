@@ -1,5 +1,4 @@
 // LOG_LEVEL=trace npm start
-// app.log('Hodor, app log');
 // app.log.debug({data: 'here'}, 'Debugging with app log');
 /**
  * This is the entry point for your Probot App.
@@ -31,6 +30,7 @@ module.exports = app => {
   app.on(['pull_request.opened', 'pull_request.reopened', 'pull_request.edited'], async context => {
     // Return the owner, repo, and number params for making API requests against an issue or pull request.
     // The object passed in will be merged with the repo params.
+
     const params = context.issue();
     const {owner, repo, number} = params;
 
@@ -66,14 +66,26 @@ module.exports = app => {
   async function updateChangeLog(context, checklist) {
     const {owner, repo, number} = context.issue();
 
-    // TODO append to TOP of file with info about commit
-    // get all commits first and extract info about last commit
-    // add that info to changelogFileContents
-    
+    const allCommits = await context.github.repos.getCommits({owner, repo});
+    const lastCommit = allCommits.data[0];
+    const rootSha = lastCommit.sha;
+
+    const authorInfo = lastCommit.commit.author;
+
+    // TODO: How to get this?
+    const mergeCommitMessage = lastCommit.message || 'no message';
+
     const changelogFile = await context.github.repos.getContent({owner, repo, path: '.github/release_changelog.md'});
     const changelogFileContents = Buffer.from(changelogFile.data.content, 'base64').toString();
 
-    const content = Buffer.from(owner + '/n' + number + '/n' + checklist + '/n' + changelogFileContents).toString('base64');
+    const content = Buffer.from(
+      authorInfo.name + '/n' +
+      authorInfo.email + '/n' +
+      authorInfo.date + '/n' +
+      mergeCommitMessage + '/n' +
+      checklist + '/n' +
+      changelogFileContents)
+        .toString('base64');
 
     const updatefile = await context.github.repos.updateFile(
       {
@@ -85,9 +97,6 @@ module.exports = app => {
         sha: changelogFile.data.sha
       }
     );
-
-    const allCommits = await context.github.repos.getCommits({owner, repo});
-    const rootSha = allCommits.data[0].sha;
 
     const commitParams = {
       owner,
