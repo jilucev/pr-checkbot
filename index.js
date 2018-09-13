@@ -22,18 +22,27 @@ module.exports = app => {
     const params = context.issue();
     const {owner, repo, number} = params;
 
-    const wasMerged = await context.github.pullRequests.checkMerged({owner, repo, number});
+    const comments = await context.github.issues.getComments({owner, repo, number});
+    const checklistComment = comments.data.filter(comment => comment.body.includes(`# Code Review Checklist`));
+    const checklist = checklistComment[0].body;
+    const checklistParams = context.issue({ body: checklist});
 
-    if (wasMerged.status == 204) {
-      //TODO get checklist body here
-      // const result = await octokit.issues.getComments({owner, repo, number, since, per_page, page})
-      updateChangeLog(context, body);
-      context.github.issues.createComment(params);
-    }
+    app.log(`checklist body in pr closed ${checklist}`);
+
+    // try {
+    //   const mergeCheck = await context.github.issues.getComments({owner, repo, number});
+    //   if(mergeCheck.status == 204) {
+        app.log('was merged!')
+        updateChangeLog(context, checklist);
+        context.github.issues.createComment(checklistParams);
+    //   }
+    // } catch(e) {
+    //   app.log(`Unexpected error occurred ${e}`);
+    // }
+
+
     // context.github is an instance of the @octokit/rest Node.js module,
     // which wraps the GitHub REST API and allows you to do almost anything programmatically that you can do through a web browser.
-    const comments = await context.github.issues.getComments({owner, repo, number});
-
     comments.data.forEach(comment => context.github.issues.deleteComment({owner, repo, comment_id: comment.id}));
 
     // const events = (await context.github.activity.getEventsForRepo({owner, repo, per_page: 3, page: 1}).then(events => {
@@ -84,6 +93,7 @@ module.exports = app => {
   })
 
   async function updateChangeLog(context, checklist) {
+    app.log(`checklist in updateChangeLog ${checklist}`);
     const {owner, repo, number} = context.issue();
 
     const allCommits = await context.github.repos.getCommits({owner, repo});
