@@ -29,31 +29,24 @@ module.exports = app => {
 
     app.log(`checklist body in pr closed ${checklist}`);
 
-    // try {
-    //   const mergeCheck = await context.github.issues.getComments({owner, repo, number});
-    //   if(mergeCheck.status == 204) {
-        app.log('was merged!')
-        updateChangeLog(context, checklist);
-        context.github.issues.createComment(checklistParams);
-    //   }
-    // } catch(e) {
-    //   app.log(`Unexpected error occurred ${e}`);
-    // }
+    let mergeCommit;
 
+    const events = (await context.github.activity.getEventsForRepo({owner, repo}).then(events => {
+      mergeCommit = events.data[0].payload.commits.pop();
+      app.log(`merge commit ${JSON.stringify(mergeCommit, null, 4)}`);
+    }));
+
+    const mergeCheck = await context.github.pullRequests.checkMerged({owner, repo, number}).catch(e => app.log(` Error with merge check ${e}`));
+
+    if(mergeCheck.status == 204) {
+      app.log('was merged!')
+      updateChangeLog(context, checklist, mergeCommit);
+      context.github.issues.createComment(checklistParams);
+    }
 
     // context.github is an instance of the @octokit/rest Node.js module,
     // which wraps the GitHub REST API and allows you to do almost anything programmatically that you can do through a web browser.
     comments.data.forEach(comment => context.github.issues.deleteComment({owner, repo, comment_id: comment.id}));
-
-    // const events = (await context.github.activity.getEventsForRepo({owner, repo, per_page: 3, page: 1}).then(events => {
-    //   const wasMerge = events.data[0].payload.pull_request.merged;
-    //   app.log(`WasMerge? ${wasMerge}`);
-    //   if (wasMerge) {
-    //     app.log(`updating changelog`);
-    //     updateChangeLog(context, body);
-    //     context.github.issues.createComment(params);
-    //   }
-    // }));
   })
 
   app.on(['pull_request.opened', 'pull_request.reopened', 'pull_request.edited'], async context => {
@@ -92,7 +85,7 @@ module.exports = app => {
       .createStatus({ owner, repo, sha, state: 'pending', context: 'Code Review', description: 'Checklist' });
   })
 
-  async function updateChangeLog(context, checklist) {
+  async function updateChangeLog(context, checklist, mergeCommit) {
     app.log(`checklist in updateChangeLog ${checklist}`);
     const {owner, repo, number} = context.issue();
 
@@ -108,14 +101,15 @@ module.exports = app => {
     const changelogFile = await context.github.repos.getContent({owner, repo, path: '.github/release_changelog.md'});
     const changelogFileContents = Buffer.from(changelogFile.data.content, 'base64').toString();
 
-    const content = Buffer.from(
-      authorInfo.name + '/n' +
-      authorInfo.email + '/n' +
-      authorInfo.date + '/n' +
-      mergeCommitMessage + '/n' +
-      checklist + '/n' +
-      changelogFileContents)
-        .toString('base64');
+    let info = [
+      mergeCommit.sha,
+      mergeCommit.author.email,
+      mergeCommit.message,
+      checklist,
+      changelogFileContents
+    ].join('/n');
+
+    const content = Buffer.from(info).toString('base64');
 
     const updatefile = await context.github.repos.updateFile(
       {
