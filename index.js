@@ -1,5 +1,6 @@
 // LOG_LEVEL=trace npm start
 // app.log.debug({data: 'here'}, 'Debugging with app log');
+//https://octokit.github.io/rest.js/
 /**
  * This is the entry point for your Probot App.
  * @param {import('probot').Application} app - Probot's Application class.
@@ -17,14 +18,33 @@ module.exports = app => {
   //cleans up the comments when the pr is deleted
   // assigned, unassigned, labeled, unlabeled, opened, edited, closed, reopened, or synchronized
   app.on('pull_request.closed', async context => {
+    app.log(`pull request was closed`);
     const params = context.issue();
     const {owner, repo, number} = params;
 
+    const wasMerged = await context.github.pullRequests.checkMerged({owner, repo, number});
+
+    if (wasMerged.status == 204) {
+      //TODO get checklist body here
+      // const result = await octokit.issues.getComments({owner, repo, number, since, per_page, page})
+      updateChangeLog(context, body);
+      context.github.issues.createComment(params);
+    }
     // context.github is an instance of the @octokit/rest Node.js module,
     // which wraps the GitHub REST API and allows you to do almost anything programmatically that you can do through a web browser.
     const comments = await context.github.issues.getComments({owner, repo, number});
 
-    return comments.data.forEach(comment => context.github.issues.deleteComment({owner, repo, comment_id: comment.id}));
+    comments.data.forEach(comment => context.github.issues.deleteComment({owner, repo, comment_id: comment.id}));
+
+    // const events = (await context.github.activity.getEventsForRepo({owner, repo, per_page: 3, page: 1}).then(events => {
+    //   const wasMerge = events.data[0].payload.pull_request.merged;
+    //   app.log(`WasMerge? ${wasMerge}`);
+    //   if (wasMerge) {
+    //     app.log(`updating changelog`);
+    //     updateChangeLog(context, body);
+    //     context.github.issues.createComment(params);
+    //   }
+    // }));
   })
 
   app.on(['pull_request.opened', 'pull_request.reopened', 'pull_request.edited'], async context => {
@@ -127,9 +147,10 @@ module.exports = app => {
         const params = context.issue({body: message.join('')});
 
         if (checklistComplete) {
+          app.log('checklist complete');
           //also need to update the file and commit
-          updateChangeLog(context, body);
-          context.github.issues.createComment(params);
+          // updateChangeLog(context, body);
+          // context.github.issues.createComment(params);
         } else {
           // Remove the gif if the checklist is no longer complete
           const comments = await context.github.issues.getComments({owner, repo, number});
