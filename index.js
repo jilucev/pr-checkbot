@@ -33,7 +33,7 @@ module.exports = app => {
 
     const mergeCheck = await context.github.pullRequests.checkMerged({owner, repo, number}).catch(e => app.log(` Error with merge check ${e}`));
 
-    if(!!mergeCheck && mergeCheck.status == 204) {
+    if(mergeCheck.status == 204) {
       app.log('was merged!')
 
       const events = (await context.github.activity.getEventsForRepo({owner, repo}).then(events => {
