@@ -5,11 +5,16 @@
  * This is the entry point for your Probot App.
  * @param {import('probot').Application} app - Probot's Application class.
  */
- // The context object includes everything about the event that was triggered, and context.payload has the payload delivered by GitHub.
+ // This app exports only one thing, a Node.js module that is an instance of Probot's Application class.
 module.exports = app => {
 
   app.log('Yay, the app was loaded!');
-
+  // app provides an interface for on, which allows me to listen for github webhooks.
+  // when a user opens an issue via the Github.com UI, this webhook will fire and call this function.
+  // context is the context of the event that was triggered.
+  // it includes the payload(context.payload), the Github rest api(context.github), and a logger(context.logger).
+  // The github rest api allows you to do pretty much anything you can do via the ui on Github.com,
+  // here, I am creating a comment on this PR.
   app.on('issues.opened', async context => {
     const issueComment = context.issue({ body: 'Thanks for opening this issue!' });
     return context.github.issues.createComment(issueComment);
