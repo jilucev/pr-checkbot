@@ -2,6 +2,30 @@
 
 > A GitHub App built with [Probot](https://probot.github.io) that renders an intelligent checklist on your pr and uploads it to a changelog.
 
+## How it works
+
+A probot app is just a node.js module that exports a funtion.
+The app parameter is an instance of Application as you can see at the top of index.js:
+
+`@param {import('probot').Application} app `
+
+`app` provides access to all ‘Github goodness’, such as webhooks that allow you to subscribe to certain events via Github.com.
+
+Listen for these webhooks via [on](https://probot.github.io/api/latest/classes/application.html#on).
+
+```
+  app.on('issues.opened', async context => {
+    const issueComment = context.issue({ body: 'Thanks for opening this issue!' });
+    return context.github.issues.createComment(issueComment);
+  })
+```
+
+Here, you can see I am subscribing to issues.opened. When I open an issue on a repo that this github app is installed on via github.com, my function will fire.
+
+Another important piece is context. Context is the context of the event that was triggered, including the payload, github rest api, and a logger.
+
+The github rest api allows you to do pretty much anything you can do via the ui on Github.com. This bot uses it to create and delete comments, commit changes, and interact with various events.
+
 ## Assumptions
 
 Any repo you install this bot on is assumed to have a .github directory containing:
